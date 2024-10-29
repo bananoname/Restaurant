@@ -16,30 +16,12 @@ $id = $_SESSION['id'];
 $db = new Database();
 $orders = $db->getOrdersByUser($id);
 
-// Xử lý XML đầu vào (Submit XML) - Không ảnh hưởng đến đặt hàng
-if (isset($_POST['xml_input']) && !empty($_POST['xml_input'])) {
-  libxml_disable_entity_loader(false); // Cho phép thực thể bên ngoài (XXE), cần xử lý bảo mật ở môi trường thực tế
-  $xml = simplexml_load_string($_POST['xml_input'], 'SimpleXMLElement', LIBXML_NOENT);
-  if ($xml) {
-      $parsed_data = $xml->asXML();
-      echo "Parsed XML Data: <br>" . htmlentities($parsed_data);
-  } else {
-      echo "<script>alert('Invalid XML format!');</script>";
-  }
-}
-
-// Xử lý đặt hàng (Order Food)
-if (isset($_POST['data'])) {
-  $food_item = unserialize(base64_decode($_POST['data']));
-  if ($food_item) {
-      // Thêm đơn hàng vào cơ sở dữ liệu
-      $db->addOrder($id, get_class($food_item));
-      echo "<script>alert('Order placed successfully!');</script>";
-      // Cập nhật danh sách đơn hàng sau khi đặt hàng
-      $orders = $db->getOrdersByUser($id);
-  } else {
-      echo "<script>alert('Invalid order data!');</script>";
-  }
+// Vulnerable XML processing function (XXE injection possible)
+if (isset($_POST['xml_input'])) {
+    libxml_disable_entity_loader(false);
+    $xml = simplexml_load_string($_POST['xml_input'], 'SimpleXMLElement', LIBXML_NOENT);
+    $parsed_data = $xml->asXML();
+    echo "Parsed XML Data: <br>" . htmlentities($parsed_data);
 }
 ?>
 
@@ -50,48 +32,41 @@ if (isset($_POST['data'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Food</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap");
-
-    * {
-      padding: 0;
-      margin: 0;
-      box-sizing: border-box;
-      font-family: "Silkscreen", sans-serif;
-      color: #f0f0f0;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
 
     body, html {
-      height: 100%;
-      background-color: black;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #ff7e5f, #feb47b);
     }
 
     .app {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background-image: url('Static/Images/background.gif');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
+      width: 100%;
+      max-width: 900px;
+      background-color: #fff;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      border-radius: 15px;
+      padding: 30px;
+      text-align: center;
     }
 
-    .order {
-      width: 100%;
-      max-width: 500px;
-      background-color: rgba(0, 0, 0, 0.8);
-      padding: 40px;
-      border-radius: 20px;
-      text-align: center;
-      margin-bottom: 20px;
+    .order__container {
+      margin-bottom: 30px;
     }
 
     .order__desc {
-      margin-bottom: 20px;
       font-size: 24px;
-      text-transform: uppercase;
-      color: #e0e0e0;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #ff7e5f;
     }
 
     .order__buttons {
@@ -99,87 +74,81 @@ if (isset($_POST['data'])) {
       flex-wrap: wrap;
       justify-content: center;
       gap: 20px;
-      margin-top: 20px;
     }
 
     .order__button {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 10px 20px;
-      background-color: #af5865;
-      color: #f0f0f0;
-      cursor: pointer;
+      background-color: #ff7e5f;
+      color: white;
+      padding: 15px 25px;
+      border-radius: 10px;
       border: none;
-      border-radius: 5px;
-      text-transform: uppercase;
-      text-align: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background 0.3s ease;
+    }
+
+    .order__button:hover {
+      background-color: #feb47b;
     }
 
     .order__button img {
       width: 100px;
       height: auto;
       margin-bottom: 10px;
-      border-radius: 5px;
     }
 
-    .order__group > input {
-      display: none;
+    textarea {
+      width: 100%;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      margin-bottom: 20px;
+      transition: border-color 0.3s ease;
+    }
+
+    textarea:focus {
+      border-color: #ff7e5f;
+      outline: none;
+    }
+
+    button[type="submit"] {
+      background-color: #ff7e5f;
+      color: white;
+      padding: 15px 25px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s ease;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #feb47b;
     }
 
     .orders__list {
-      margin-top: 20px;
+      background-color: rgba(255, 255, 255, 0.9);
       padding: 20px;
-      background-color: rgba(255, 255, 255, 0.1);
       border-radius: 10px;
-      color: #f0f0f0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     }
 
     .order__item {
       display: flex;
       align-items: center;
-      color: #e0e0e0;
       margin-bottom: 10px;
       font-size: 18px;
+      color: #333;
     }
 
     .order__item img {
-      width: 24px;
-      height: 24px;
+      width: 30px;
+      height: 30px;
       margin-right: 10px;
-    }
-
-    /* Style for Submit XML button */
-    form button[type="submit"] {
-      background-color: #f0f0f0;
-      color: black;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      text-transform: uppercase;
-      font-size: 16px;
-    }
-
-    /* Style for textarea XML input */
-    textarea[name="xml_input"] {
-      width: 100%;
-      padding: 10px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      color: black; /* Màu chữ đen */
-      background-color: #f0f0f0; /* Nền xám nhạt */
-      font-size: 16px;
-      resize: none;
-    }
-
-    /* Style for checkboxes */
-    input[type="checkbox"] {
-      accent-color: #af5865;
     }
   </style>
 </head>
-
 <body>
   <div class="app">
     <main>
